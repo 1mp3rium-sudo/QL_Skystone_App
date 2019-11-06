@@ -23,6 +23,13 @@ class Vertical_Elevator(map : HardwareMap, t : Telemetry){
         STATE_DROP,
         STATE_IDLE
     }
+    
+    enum class slideBoundary{
+        STATE_LOW,
+        STATE_OPTIMAL,
+        STATE_HIGH,
+        STATE_UNKNOWN
+    }
 
     var mSlideState = slideState.STATE_IDLE
 
@@ -47,12 +54,33 @@ class Vertical_Elevator(map : HardwareMap, t : Telemetry){
         motors.map{
             it.motor.mode = DcMotor.RunMode.RUN_WITHOUT_ENCODER
         }
-        if (abs(motors[0].getCurrentPosition() + motors[1].getCurrentPosition()) / 2 > 25) {
-            motors[0].setPower(power)
-            motors[1].setPower(power)
+        when getBoundaryConditions(){
+            slideBoundary.STATE_OPTIMAL ->
+                motors.map{ it.setPower(power) }
+            slideBoundary.STATE_HIGH ->
+                motors.map { it.setPower(abs(power)) }
+            slideBoundary.STATE_LOW ->
+                motors.map { it.setPower(-abs(power)) }
         }
-        motors[0].setPower(-abs(power))
-        motors[1].setPower(-abs(power))
+    }
+    
+    fun getLiftHeight() : Double{
+        return ((motors[0].getCurrentPosition() + motors[1].getCurrentPosition()) / 2).toDouble()
+    }
+    
+    fun getBoundaryConditions() : slideBoundary{
+        if (getLiftHeight() < -25 && getLiftHeight() > -925){
+            return slideBoundary.STATE_OPTIMAL
+        }
+        else if (getLiftHeight() < -925){
+            return slideBoundary.STATE_HIGH
+        }
+        else if (getLiftHeight() > -25){
+            return slideBoundary.STATE_LOW
+        }
+        else{
+            return slideBoundary.STATE_UNKNOWN
+        }
     }
 
     fun newState(s : slideState){
@@ -87,14 +115,14 @@ class Vertical_Elevator(map : HardwareMap, t : Telemetry){
 
         if (mSlideState == slideState.STATE_RAISE){
             setTargetPosition(-925)
-            if (abs(motors[0].getCurrentPosition() + 925) < 25){
+            if (abs(getLiftHeight() + 925) < 25){
                 setPower(0.0)
                 newState(slideState.STATE_IDLE)
             }
         }
         else if (mSlideState == slideState.STATE_DROP){
             setTargetPosition(0)
-            if (motors[0].getCurrentPosition() < 25){
+            if (getBoundaryConditions() == slideBoundary.STATE_LOW){
                 setPower(0.0)
                 newState(slideState.STATE_IDLE)
             }
@@ -103,7 +131,7 @@ class Vertical_Elevator(map : HardwareMap, t : Telemetry){
             setPower(g.right_stick_y.toDouble())
         }
         else{
-            telemetry.addData("You fucked up", motors[0].getCurrentPosition())
+            telemetry.addData("You fucked up", getLiftHeight())
         }
         write()
     }
