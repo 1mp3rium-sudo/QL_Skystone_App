@@ -47,8 +47,12 @@ class Vertical_Elevator(map : HardwareMap, t : Telemetry){
         motors.map{
             it.motor.mode = DcMotor.RunMode.RUN_WITHOUT_ENCODER
         }
-        motors[0].setPower(power)
-        motors[1].setPower(power)
+        if (abs(motors[0].getCurrentPosition() + motors[1].getCurrentPosition()) / 2 > 25) {
+            motors[0].setPower(power)
+            motors[1].setPower(power)
+        }
+        motors[0].setPower(-abs(power))
+        motors[1].setPower(-abs(power))
     }
 
     fun newState(s : slideState){
