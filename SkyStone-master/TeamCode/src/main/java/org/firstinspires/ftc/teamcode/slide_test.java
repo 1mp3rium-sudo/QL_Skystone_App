@@ -8,14 +8,14 @@ import org.openftc.revextensions2.RevExtensions2;
 
 @TeleOp(name = "Slide Test", group = "Slides")
 public class slide_test extends OpMode {
-    private Vertical_Elevator elevator;
+    private Vertical_Elevator_v2 elevator;
 
     private ExpansionHubEx hub2;
 
     public void init(){
         RevExtensions2.init();
 
-        elevator = new Vertical_Elevator(hardwareMap, telemetry);
+        elevator = new Vertical_Elevator_v2(hardwareMap, telemetry);
         hub2 = hardwareMap.get(ExpansionHubEx.class, "Expansion Hub 1");
     }
 
@@ -26,7 +26,7 @@ public class slide_test extends OpMode {
         telemetry.addData("Motor 1 Pos: ", elevator.getMotors()[0].getCurrentPosition());
         telemetry.addData("Motor 2 Pos: ", elevator.getMotors()[1].getCurrentPosition());
 
-        telemetry.addData("Motor 1 Target: ", elevator.getMotors()[0].getMotor().getTargetPosition());
-        telemetry.addData("Motor 2 Target: ", elevator.getMotors()[1].getMotor().getTargetPosition());
+        telemetry.addData("Motor 1 Target: ", elevator.getMotors()[0].getTargetPosition());
+        telemetry.addData("Motor 2 Target: ", elevator.getMotors()[1].getTargetPosition());
     }
 }

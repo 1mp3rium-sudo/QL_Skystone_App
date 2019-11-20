@@ -10,13 +10,17 @@ import org.firstinspires.ftc.teamcode.Universal.Motion.MotionProfile
 import org.openftc.revextensions2.RevBulkData
 import kotlin.math.abs
 
-class Vertical_Elevator(map : HardwareMap, t : Telemetry){
-    var motors : Array<Caching_Motor>
+class Vertical_Elevator_v2(map : HardwareMap, t : Telemetry){
+    var motors : Array<DcMotor>
 
     val UPDATE_RATE = 1
     var write_index = 0
 
     var telemetry = t
+
+    var slide_height = 0
+
+    var query = 0.0
 
     enum class slideState{
         STATE_RAISE,
@@ -27,32 +31,25 @@ class Vertical_Elevator(map : HardwareMap, t : Telemetry){
     var mSlideState = slideState.STATE_IDLE
 
     init{
-        motors = arrayOf(Caching_Motor(map, "lift_1"), Caching_Motor(map, "lift_2"))
-        motors[1].motor.direction = DcMotorSimple.Direction.REVERSE
+        motors = arrayOf(map.dcMotor.get("lift_1"), map.dcMotor.get("lift_2"))
+        motors[1].direction = DcMotorSimple.Direction.REVERSE
         //motors[0].motor.mode = DcMotor.RunMode.RUN_TO_POSITION
     }
 
     fun read(data : RevBulkData){
-        motors.map {
-            it.read(data)
-        }
-    }
-
-    fun write(){
-        motors[write_index].write()
-        write_index = (write_index + 1) % 2
+        slide_height = (data.getMotorCurrentPosition(motors[0]) + data.getMotorCurrentPosition(motors[1])) / 2
     }
 
     fun setPower(power : Double){
         motors.map{
-            it.motor.mode = DcMotor.RunMode.RUN_WITHOUT_ENCODER
+            it.mode = DcMotor.RunMode.RUN_WITHOUT_ENCODER
         }
-        if (abs(motors[0].getCurrentPosition() + motors[1].getCurrentPosition()) / 2 > 25) {
-            motors[0].setPower(power)
-            motors[1].setPower(power)
-        }
-        motors[0].setPower(-abs(power))
-        motors[1].setPower(-abs(power))
+        query = power
+    }
+
+    fun write(){
+        motors[write_index].power = query
+        write_index = (write_index + 1) % 2
     }
 
     fun newState(s : slideState){
@@ -60,17 +57,17 @@ class Vertical_Elevator(map : HardwareMap, t : Telemetry){
     }
 
     fun setTargetPosition(target : Int){
-        motors[0].motor.targetPosition = target
-        motors[1].motor.targetPosition = target//motors[0].getCurrentPosition() //test to see if pos1 = -pos2, recommended test is to output encoder positions from both motors and analyze
+        motors[0].targetPosition = target
+        motors[1].targetPosition = target//motors[0].getCurrentPosition() //test to see if pos1 = -pos2, recommended test is to output encoder positions from both motors and analyze
 
-        if (motors[0].motor.mode != DcMotor.RunMode.RUN_TO_POSITION){
-            motors[0].motor.mode = DcMotor.RunMode.RUN_TO_POSITION
+        if (motors[0].mode != DcMotor.RunMode.RUN_TO_POSITION){
+            motors[0].mode = DcMotor.RunMode.RUN_TO_POSITION
         }
-        if (motors[1].motor.mode != DcMotor.RunMode.RUN_TO_POSITION){
-            motors[1].motor.mode = DcMotor.RunMode.RUN_TO_POSITION
+        if (motors[1].mode != DcMotor.RunMode.RUN_TO_POSITION){
+            motors[1].mode = DcMotor.RunMode.RUN_TO_POSITION
         }
         motors.map{
-            it.motor.power = 1.0
+            it.power = 1.0
         }
     }
 
@@ -87,14 +84,14 @@ class Vertical_Elevator(map : HardwareMap, t : Telemetry){
 
         if (mSlideState == slideState.STATE_RAISE){
             setTargetPosition(-925)
-            if (abs(motors[0].getCurrentPosition() + 925) < 25){
+            if (abs(slide_height + 925) < 25){
                 setPower(0.0)
                 newState(slideState.STATE_IDLE)
             }
         }
         else if (mSlideState == slideState.STATE_DROP){
             setTargetPosition(0)
-            if (motors[0].getCurrentPosition() < 25){
+            if (slide_height > -25){
                 setPower(0.0)
                 newState(slideState.STATE_IDLE)
             }

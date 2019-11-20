@@ -6,13 +6,13 @@ import kotlin.math.abs
 
 class Caching_Servo(hardwareMap: HardwareMap, name : String){
     var servo = hardwareMap.get(Servo::class.java, name)
-    var prev_pos = 0.0
+    var prev_pos = -2.0
     var query = 0.0
 
     val EPSILON = 0.001
 
     fun setPosition(pos : Double){
-        if (abs(pos - prev_pos) < EPSILON){
+        if (abs(pos - prev_pos) > EPSILON){
             query = pos
         }
     }

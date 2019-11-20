@@ -22,9 +22,6 @@ class Caching_Motor(hardwareMap : HardwareMap, name : String) {
         if (abs(prev_power - power) > EPSILON){
             query = power
         }
-        else if (power <= 0.3 && prev_power >= 0.3){
-            query = 0.0
-        }
     }
 
     fun write(){

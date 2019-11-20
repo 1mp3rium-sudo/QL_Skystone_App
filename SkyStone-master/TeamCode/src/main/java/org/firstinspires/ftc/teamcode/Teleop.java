@@ -10,8 +10,9 @@ import org.openftc.revextensions2.RevExtensions2;
 @TeleOp(name = "Teleop", group = "Competition")
 public class Teleop extends OpMode{
     private Mecanum_Drive drive;
-    private Vertical_Elevator elevator;
+    private Vertical_Elevator_v2 elevator;
     private Intake intake;
+    private Flipper flipper;
 
     private ExpansionHubEx hub;
     private ExpansionHubEx hub2;
@@ -24,8 +25,9 @@ public class Teleop extends OpMode{
         hub2 = hardwareMap.get(ExpansionHubEx.class, "Expansion Hub 1");
 
         drive = new Mecanum_Drive(hardwareMap);
-        elevator = new Vertical_Elevator(hardwareMap, telemetry);
+        elevator = new Vertical_Elevator_v2(hardwareMap, telemetry);
         intake = new Intake(hardwareMap);
+        flipper = new Flipper(hardwareMap);
     }
 
     public void loop(){
@@ -36,6 +38,9 @@ public class Teleop extends OpMode{
         drive.drive(gamepad1);
         elevator.operate(gamepad2);
         intake.operate(gamepad1);
+        flipper.operate(gamepad2);
+
+        telemetry.addData("Vertical Slide Power: ", elevator.getMotors()[0].getPower());
 
         telemetry.addData("Angle: ", drive.getExternalHeading());
 

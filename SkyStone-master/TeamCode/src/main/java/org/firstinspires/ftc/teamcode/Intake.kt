@@ -8,12 +8,12 @@ import org.openftc.revextensions2.RevBulkData
 class Intake(hardwareMap: HardwareMap) {
     var motors : Array<Caching_Motor>
 
-    val UPDATE_RATE = 0.2
+    val UPDATE_RATE = 1.0
     var write_index = 0
 
     init{
-        motors = arrayOf(Caching_Motor(hardwareMap, "intake_right"), Caching_Motor(hardwareMap, "intake_right"))
-        motors[2].motor.direction = DcMotorSimple.Direction.REVERSE
+        motors = arrayOf(Caching_Motor(hardwareMap, "intake_left"), Caching_Motor(hardwareMap, "intake_right"))
+        //motors[1].motor.direction = DcMotorSimple.Direction.REVERSE
     }
 
     fun read(data : RevBulkData){
