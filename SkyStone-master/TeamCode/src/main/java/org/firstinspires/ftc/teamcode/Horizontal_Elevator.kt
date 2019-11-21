@@ -42,11 +42,21 @@ class Horizontal_Elevator(hardwareMap: HardwareMap) {
 
     fun getDepositPoint(pos : Pose2d, center_pos: Pose2d) : Pose2d{
         val target : Vector2d = when{
-            stack_count < MAX_STONES - MAX_SAFE_1x2_COUNT -> getDoubleStackPosition(center_pos, stack_count)
+            stack_count < MAX_STONES - MAX_SAFE_1x2_COUNT -> getBestDoubleStackPosition(center_pos, pos, stack_count)
             else -> getSingleStackPosition(center_pos)
         }
 
         return getTargetDepositPoint(pos, target)
+    }
+    
+    fun getBestDoubleStackPosition(center_pos : Pose2d, pos : Pose2d, stack_count : Int){
+        val possibilities = getDoubleStackPositions(center_pos, stack_count)
+        
+        return when{
+            getTargetDepositPoint(pos, possibilities[0]).vec().distTo(pos.vec()) > getTargetDepositPoint(pos, possibilities[1]).vec().distTo(pos.vec()) -> possibilities[1]
+            getTargetDepositPoint(pos, possibilities[0]).vec().distTo(pos.vec()) <= getTargetDepositPoint(pos, possibilities[1]).vec().distTo(pos.vec()) -> possibilities[0]
+            else -> pos
+        }
     }
 
     fun getDepositHeight() : Int{
@@ -65,14 +75,22 @@ class Horizontal_Elevator(hardwareMap: HardwareMap) {
         stack_count--
     }
 
-    fun getDoubleStackPosition(center_pos : Pose2d, stack_count : Int) : Vector2d{
+    fun getDoubleStackPositions(center_pos : Pose2d, stack_count : Int) : Array<Vector2d>{
         return when{
-            stack_count % 4 == 0 -> center_pos.vec() + offset.rotated(foundation_angle)
-            stack_count % 4 == 1 -> center_pos.vec() + offset.rotated(Math.PI + foundation_angle)
-            stack_count % 4 == 2 -> center_pos.vec() + offset.rotated((Math.PI / 2) + foundation_angle)
-            stack_count % 4 == 3 -> center_pos.vec() + offset.rotated(((3 * Math.PI) / 2) + foundation_angle)
+            stack_count % 4 == 0 -> arrayOf(center_pos.vec() + offset.rotated(foundation_angle), reflectVectorOverAngle(offset.rotated(foundation_angle), foundation_angle))
+            stack_count % 4 == 1 -> arrayOf(center_pos.vec() + offset.rotated(Math.PI + foundation_angle), reflectVectorOverAngle(offset.rotated(Math.PI + foundation_angle), foundation_angle))
+            stack_count % 4 == 2 -> arrayOf(center_pos.vec() + offset.rotated((Math.PI / 2) + foundation_angle), reflectVectorOverAngle(offset.rotated((Math.PI / 2) + foundation_angle), foundation_angle))
+            stack_count % 4 == 3 -> arrayOf(center_pos.vec() + offset.rotated(((3 * Math.PI) / 2) + foundation_angle), reflectVectorOverAngle(offset.rotated(((3 * Math.PI) / 2) + foundation_angle), foundation_angle))
             else -> center_pos.vec()
         }
+    }
+                                            
+    private fun reflectVectorOverVector(target : Vector2d, base : Vector2d){
+        return new Vector2d(-target.rotated(-base.angle()).x, target.rotated(-base.angle()).y).rotated(base.angle())
+    }
+                                                                                                       
+    private fun reflectVectorOverAngle(target : Vector2d, base : Double){
+        return new Vector2d(-target.rotated(-base).x, target.rotated(-base).y).rotated(base)
     }
 
     fun getSingleStackPosition(center_pos : Pose2d) : Vector2d{
