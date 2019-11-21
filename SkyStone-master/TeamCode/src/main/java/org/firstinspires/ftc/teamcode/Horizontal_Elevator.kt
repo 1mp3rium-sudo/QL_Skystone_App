@@ -36,8 +36,16 @@ class Horizontal_Elevator(hardwareMap: HardwareMap) {
         write()
     }
 
-    fun getDepositLocation(pos : Pose2d, center_pos : Pose2d) : Pose3d{
-        return Pose3d(getDepositPoint(pos, center_pos), getDepositHeight().toDouble())
+    fun getDepositLocation(pos : Pose2d, center_pos : Pose2d) : Pair<Pose3d>{
+        val target_pos = Pose3d(getDepositPoint(pos, center_pos), getDepositHeight().toDouble())
+        var target_index = when{
+            getDoubleStackPositions(center_pos, stack_count)[0].epsilonEquals(target_pos.pos) -> 0
+            else -> 1
+        }
+        
+        var target_angle = 0
+       
+        return Pair(target_pos, target_angle)
     }
 
     fun getDepositPoint(pos : Pose2d, center_pos: Pose2d) : Pose2d{
