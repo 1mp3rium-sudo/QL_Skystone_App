@@ -27,7 +27,8 @@ public class Teleop extends OpMode{
         drive = new Mecanum_Drive(hardwareMap);
         elevator = new Vertical_Elevator_v2(hardwareMap, telemetry);
         intake = new Intake(hardwareMap);
-        flipper = new Flipper(hardwareMap);
+        flipper = new Flipper(hardwareMap, telemetry);
+        flipper.initialize();
     }
 
     public void loop(){
@@ -38,7 +39,7 @@ public class Teleop extends OpMode{
         drive.drive(gamepad1);
         elevator.operate(gamepad2);
         intake.operate(gamepad1);
-        flipper.operate(gamepad2);
+        flipper.operate(gamepad1);
 
         telemetry.addData("Vertical Slide Power: ", elevator.getMotors()[0].getPower());
 
