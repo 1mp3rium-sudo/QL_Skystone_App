@@ -18,6 +18,8 @@ class Vertical_Elevator(map : HardwareMap, t : Telemetry){
 
     var telemetry = t
 
+    var GFF = 0.0
+
     enum class slideState{
         STATE_RAISE,
         STATE_DROP,
@@ -47,12 +49,14 @@ class Vertical_Elevator(map : HardwareMap, t : Telemetry){
         motors.map{
             it.motor.mode = DcMotor.RunMode.RUN_WITHOUT_ENCODER
         }
-        if (abs(motors[0].getCurrentPosition() + motors[1].getCurrentPosition()) / 2 > 25) {
+        if (abs(motors[0].getCurrentPosition() + motors[1].getCurrentPosition()) / 2 > 50) {
+            motors[0].setPower(power + GFF)
+            motors[1].setPower(power + GFF)
+        }
+        else{
             motors[0].setPower(power)
             motors[1].setPower(power)
         }
-        motors[0].setPower(-abs(power))
-        motors[1].setPower(-abs(power))
     }
 
     fun newState(s : slideState){
