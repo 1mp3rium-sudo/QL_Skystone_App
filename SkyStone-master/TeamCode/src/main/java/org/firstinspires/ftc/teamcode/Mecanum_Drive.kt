@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode
 
+import com.acmerobotics.roadrunner.geometry.Vector2d
 import com.qualcomm.hardware.bosch.BNO055IMU
 import com.qualcomm.robotcore.hardware.DcMotor
 import com.qualcomm.robotcore.hardware.DcMotorSimple
@@ -36,6 +37,8 @@ class Mecanum_Drive(hardwareMap : HardwareMap){
     var headingReadCount = 0
     var headingAccessCount = 0
     val headingUpdateFrequency = 0.1
+
+    var scale = 1.0
 
     var orientation : Orientation
 
@@ -107,12 +110,12 @@ class Mecanum_Drive(hardwareMap : HardwareMap){
         write()
     }
 
-    fun read(data : RevBulkData){
-        motors.forEach{
+    fun read(data : RevBulkData) {
+        motors.forEach {
             it.read(data)
         }
         headingReadCount++
-        if (headingAccessCount.toDouble() / headingReadCount.toDouble() < headingUpdateFrequency){
+        if (headingAccessCount.toDouble() / headingReadCount.toDouble() < headingUpdateFrequency) {
             headingAccessCount++
             currHeading = imu.angularOrientation.firstAngle.toDouble()
             orientation = imu.angularOrientation

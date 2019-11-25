@@ -46,13 +46,13 @@ class Intake(hardwareMap: HardwareMap) {
     }
 
     fun open(){
-        open[0].setPosition(.7)
-        open[1].setPosition(.3)
+        open[0].setPosition(0.4)
+        open[1].setPosition(0.6)
     }
 
     fun close(){
-        open[0].setPosition(1.0) //0.7
-        open[1].setPosition(0.0) //0.2
+        open[0].setPosition(0.7) //0.7
+        open[1].setPosition(0.2) //0.2
     }
 
     fun newState(clampState: clamp){
@@ -61,7 +61,7 @@ class Intake(hardwareMap: HardwareMap) {
     }
 
     fun operate(g1 : Gamepad, g2: Gamepad){
-        setPower(0.3 * (g1.right_trigger - g1.left_trigger).toDouble())
+        setPower(0.25 * (g1.right_trigger - g1.left_trigger).toDouble())
 
         if(g2.y){
             newState(clamp.OPEN)
