@@ -45,6 +45,17 @@ class Vertical_Elevator(map : HardwareMap, t : Telemetry){
         STATE_HIGH,
         STATE_UNKNOWN
     }
+    
+    enum class depositState{
+        STATE_PLACE,
+        STATE_RELEASE,
+        STATE_CLEAR,
+        STATE_IDLE
+    }
+    
+    var mDepositState = depositState.STATE_IDLE
+    var mDepositTime = ElapsedTime()
+    var depositTarget = 0
 
     var mSlideState = slideState.STATE_IDLE
 
@@ -53,6 +64,7 @@ class Vertical_Elevator(map : HardwareMap, t : Telemetry){
         touch.mode = DigitalChannel.Mode.INPUT
         motors[1].motor.direction = DcMotorSimple.Direction.REVERSE
         motors.map{
+            it.motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE)
             it.motor.mode = DcMotor.RunMode.STOP_AND_RESET_ENCODER
             it.motor.mode = DcMotor.RunMode.RUN_WITHOUT_ENCODER
         }
@@ -91,6 +103,11 @@ class Vertical_Elevator(map : HardwareMap, t : Telemetry){
         }
 
         telemetry.addData("Speed Set", power)
+    }
+    
+    fun newDepositState(state : depositState){
+        mDepositState = state
+        mDepositTime.reset()
     }
 
     fun getLiftHeight() : Double{
@@ -142,27 +159,55 @@ class Vertical_Elevator(map : HardwareMap, t : Telemetry){
     fun setTargetPosBasic(target: Int, power: Double){
         motors.map {
             if(stack_count > 1){
-                it.motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE)
                 if(getLiftHeight() < (target)){
-                    it.motor.power = power
+                    it.setPower(power)
                 }else if(getLiftHeight() >= (target)) {
-                    it.motor.power = 0.3
+                    it.setPower(0.3)
                 }
             }else if(stack_count <= 1){
-                it.motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE)
                 if(getLiftHeight() < target){
-                    it.motor.power = power
+                    it.setPower(power)
                 }else if(getLiftHeight() >= target) {
-                    it.motor.power = 0.3
+                    it.setPower(0.3)
                 }
             }
             if(power <= 0.0){
                 telemetry.addData("State:", "Dropping")
                 if(getLiftHeight() > (target)){
-                    it.motor.power = power
+                    it.setPower(power)
                 }else if(getLiftHeight() <= (target)) {
-                    it.motor.power = 0.0
+                    it.setPower(0.0)
                 }
+            }
+        }
+    }
+    
+    fun secureDeposit(){
+        setTargetPosBasic(getLiftHeight() - 30, -0.25) //tune the encoder decrement based on desired drop for placement
+    }
+    
+    fun clearDeposit(){
+        setTargetPosBasic(getLiftHeight() + 60, -0.25) //tune the encoder increment based on desired clear distance for placement
+    }
+    
+    fun runDepositAutomation(){
+        if (mDepositState == depositState.STATE_PLACE){
+            secureDeposit()
+            if (abs(getLiftHeight() - depositTarget) < 10){
+                newDepositState(depositState.STATE_RELEASE)
+            }
+        }
+        else if (mDepositState == depositState.STATE_RELEASE){
+            //insert flipper code pass-in
+            if (mDepositTime.time() >= 0.5){
+                depositTarget = getLiftHeight() + 60
+                newDepositState(depositState.STATE_CLEAR)
+            }
+        }
+        else if (mDepositState == depositSTate.STATE_CLEAR){
+            clearDeposit()
+            if (abs(getLiftHeight() - depositTarget) < 10){
+                newDepositState(depositState.STATE_IDLE)
             }
         }
     }
