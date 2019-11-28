@@ -1,15 +1,21 @@
 package org.firstinspires.ftc.teamcode
 
+import com.qualcomm.robotcore.hardware.DistanceSensor
 import com.qualcomm.robotcore.hardware.Gamepad
 import com.qualcomm.robotcore.hardware.HardwareMap
 import com.qualcomm.robotcore.util.ElapsedTime
 import org.firstinspires.ftc.robotcore.external.Telemetry
+import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit
+import org.openftc.revextensions2.RevBulkData
+import java.util.*
 
 class Flipper(h : HardwareMap, telemetry: Telemetry){
     var flipper : Caching_Servo
     var clamp : Caching_Servo
     var deposit : Caching_Servo
     var turn : Caching_Servo
+    var leftpm : Caching_Servo
+    var rightpm : Caching_Servo
     var time = ElapsedTime()
     var t = telemetry
     var slides = Vertical_Elevator(h, telemetry)
@@ -17,17 +23,46 @@ class Flipper(h : HardwareMap, telemetry: Telemetry){
     var dclicks = 0
     var click = false
     var doubleClick = ElapsedTime()
+    var grabbed = false
+    var turnPos = 0.5
+    var sensorDistance: DistanceSensor
+    var dist = 0.0
+    var rcase: Int = 0
+    var previous = false
 
+    companion object {
+        const val case_right_turn_value = 0.8
+        const val case_left_turn_value = 0.15
+        const val case_center_turn_value = 0.5
+
+        const val handshake_flip_position = 0.5 //THIS IS GOING BACKWARDS 1 -> 0
+
+        const val turnPos_IDOL = 0.4635
+        const val flipperPos_IDOL = 0.97 //THIS IS GOING BACKWARDS 1 -> 0
+        const val DepositPos_IDOL = 0.025 //THIS IS GOING BACKWARDS 1 -> 0
+
+        const val DepositPos = 0.85
+        const val Deposit_Clearance_DROPPING_Block = 0.85
+        const val Deposit_Clearance_HANDSHAKE = .1
+
+        const val Flipper_Midway_REALLIGN = 0.75 //THIS IS GOING BACKWARDS 1 -> 0
+    }
+
+    private fun clamp(){
+        clamp.setPosition(0.95)
+    }
+
+    private fun unclamp(){
+        clamp.setPosition(.5)
+    }
 
     enum class flip_state{
         STATE_CLAMP,
         STATE_FLIP,
         STATE_DEPOSIT,
-        CASE_RIGHT,
-        CASE_LEFT,
+        STATE_REALLIGN,
         STATE_DROP,
-        STATE_IDLE,
-        STATE_DELAY
+        STATE_IDLE
     }
 
     var betterFlipState = flip_state.STATE_IDLE
@@ -37,6 +72,9 @@ class Flipper(h : HardwareMap, telemetry: Telemetry){
         clamp = Caching_Servo(h,"clamp")
         deposit = Caching_Servo(h,"Deposit")
         turn = Caching_Servo(h,"turn")
+        rightpm = Caching_Servo(h, "rightpm")
+        leftpm = Caching_Servo(h, "leftpm")
+        sensorDistance = h.get(DistanceSensor::class.java, "cds")
     }
 
     fun write(){
@@ -44,12 +82,12 @@ class Flipper(h : HardwareMap, telemetry: Telemetry){
         clamp.write()
         deposit.write()
         turn.write()
+        leftpm.write()
+        rightpm.write()
     }
 
     fun start(){
-        clamp.setPosition(0.8)
-        deposit.setPosition(0.0)
-        turn.setPosition(0.5)
+        deposit.setPosition(0.025)
         time.startTime()
         doubleClick.startTime()
         write()
@@ -59,8 +97,14 @@ class Flipper(h : HardwareMap, telemetry: Telemetry){
         flipper.setPosition(0.3)
         clamp.setPosition(0.7)
         deposit.setPosition(0.0)
-        turn.setPosition(0.5)
+        turn.setPosition(turnPos)
+        leftpm.setPosition(0.2)
+        rightpm.setPosition(0.75)
         write()
+    }
+
+    fun read(){
+        dist = sensorDistance.getDistance(DistanceUnit.CM)
     }
 
     fun newState(flipState: flip_state){
@@ -69,90 +113,140 @@ class Flipper(h : HardwareMap, telemetry: Telemetry){
 
     }
 
-    fun operate(g1: Gamepad, g2 : Gamepad){
-        if(g2.y) {
-            newState(flip_state.STATE_DELAY)
+    private fun getCase() : Int{
+        read()
+        if (dist >= 6.5 && dist <= 8.5) {
+            //Case regular
+            //6.75 - 7.5
+            rcase = 0
+        } else if (dist >= 5.45 && dist <= 6.74) {
+            //Case left
+            //5.45 - 6
+            rcase = 1
+        } else if (dist >= 9.5 && dist <= 12.0) {
+            //Case right
+            //9.5 - 10.5
+            rcase = 2
         }
-        if(g2.a){
+        return rcase
+    }
+
+    private fun grabPlatform(){
+        leftpm.setPosition(0.95)
+        rightpm.setPosition(0.0)
+        grabbed = true
+    }
+
+    private fun resetPlatform(){
+        leftpm.setPosition(0.2)
+        rightpm.setPosition(0.75)
+        grabbed = false
+    }
+
+    private fun isPress(clicked : Boolean) : Boolean{
+        return clicked && !previous
+    }
+
+
+
+    fun operate(g1: Gamepad, g2 : Gamepad){
+        if(g2.right_bumper){
             newState(flip_state.STATE_DEPOSIT)
         }
         if(g1.left_bumper){
             newState(flip_state.STATE_DROP)
         }
-        if(g2.dpad_right){
-            //newState(flip_state.CASE_RIGHT)
+        if(g2.b){
+            newState(flip_state.STATE_IDLE)
         }
-        if(g2.dpad_left){
-            //newState(flip_state.CASE_LEFT)
+        if(isPress(g1.right_bumper)){
+            if(grabbed){
+                resetPlatform()
+            }else{
+                grabPlatform()
+            }
+            previous = g1.right_bumper
+        }
+        if(g2.left_bumper){
+            if(getCase() == 0) {
+                //Case regular
+                turnPos = case_center_turn_value
+                newState(flip_state.STATE_FLIP)
+            }
+            if(getCase() == 2){
+                //Case Right
+                turnPos = case_right_turn_value
+                newState(flip_state.STATE_REALLIGN)
+            }
+            if(getCase() == 1){
+                //Case Left
+                turnPos = case_left_turn_value
+                newState(flip_state.STATE_REALLIGN)
+            }
+        }
+        if(g2.right_trigger >= 0.5){
+            turnPos = case_right_turn_value
+            newState(flip_state.STATE_REALLIGN)
+        }
+        if(g2.left_trigger >= 0.5){
+            turnPos = case_left_turn_value
+            newState(flip_state.STATE_REALLIGN)
         }
 
         if (betterFlipState == flip_state.STATE_FLIP){
-            clamp.setPosition(.55)
-            if(time.time() >= 0.3){
-                flipper.setPosition(0.55)
-            }
-            if(time.time() >= 1.2){
-                betterFlipState = flip_state.STATE_CLAMP
+            unclamp()
+            if(time.time() >= 0.5){ //Wait for setup procedure before flipping
+                turn.setPosition(turnPos)
+                flipper.setPosition(handshake_flip_position)
+                if(time.time() >= 1.3){
+                    newState(flip_state.STATE_CLAMP)
+                }
             }
         }
         else if (betterFlipState == flip_state.STATE_CLAMP){
-            clamp.setPosition(0.95)
-            if (time.time() >= 2) {
+            clamp()
+            if (time.time() >= 1.0) {   //Wait for 1 second for the flipper to go back
                 newState(flip_state.STATE_IDLE)
             }
         }else if(betterFlipState == flip_state.STATE_IDLE){
-            flipper.setPosition(0.95)
-            deposit.setPosition(0.0)
-            clamp.setPosition(0.8)
+            turnPos = turnPos_IDOL
+            flipper.setPosition(flipperPos_IDOL)
+            turn.setPosition(turnPos)
+            deposit.setPosition(DepositPos_IDOL)
+            clamp()
         }else if(betterFlipState == flip_state.STATE_DEPOSIT){
-            deposit.setPosition(0.85)
+            deposit.setPosition(DepositPos)
         }else if(betterFlipState == flip_state.STATE_DROP) {
-            clamp.setPosition(0.55)
-            if (time.time() >= 2.0) {
+            unclamp()
+            if(time.time() >= 0.3){
+                deposit.setPosition(Deposit_Clearance_DROPPING_Block)
+            }
+        }else if(betterFlipState == flip_state.STATE_REALLIGN){
+            unclamp()
+            if(time.time() >= 0.5){ //0.5
+                flipper.setPosition(Flipper_Midway_REALLIGN)
+            }
+            if(time.time() >= 1.0){ //0.6
+                turn.setPosition(((turnPos-0.5)/2) + 0.5)
+                //flipper.setPosition(handshake_flip_position)
+            }
+            if(time.time() >= 1.8){
+                turn.setPosition(turnPos)
+                flipper.setPosition(handshake_flip_position)
+            }
+            if(time.time() >= 2.5){
+                clamp()
+            }
+            if(time.time() >= 3.0){
+                deposit.setPosition(Deposit_Clearance_HANDSHAKE)
+            }
+            if(time.time() >= 3.5){
+                flipper.setPosition(0.7)
+            }
+
+            if(time.time() >= 3.5){
                 newState(flip_state.STATE_IDLE)
             }
-        }else if(betterFlipState == flip_state.STATE_DELAY){
-            if(time.time() >= 0.5){
-                newState(flip_state.STATE_FLIP)
-            }
-        }else if(betterFlipState == flip_state.CASE_LEFT){
-            clamp.setPosition(.55)
-            if(time.time() >= 0.3){
-                flipper.setPosition(0.3)
-                time.reset()
-                //flipper.setPosition(.45)
-            }
-            if(time.time() >= .3){
-                turn.setPosition(1.0)
-                time.reset()
-            }
-            if(time.time() >= .2){
-                flipper.setPosition(.15)
-            }
-            if(time.time() >= 1.2){
-                betterFlipState = flip_state.STATE_CLAMP
-            }
-
-            turn.setPosition(0.0)
-        }else if(betterFlipState == flip_state.CASE_RIGHT){
-            clamp.setPosition(.55)
-            if(time.time() >= 0.3){
-                flipper.setPosition(0.3)
-                time.reset()
-                //flipper.setPosition(.45)
-            }
-            if(time.time() >= .3){
-                turn.setPosition(1.0)
-                time.reset()
-            }
-            if(time.time() >= .2){
-                flipper.setPosition(.15)
-            }
-            if(time.time() >= 1.2){
-                betterFlipState = flip_state.STATE_CLAMP
-            }
-
-            turn.setPosition(0.0)
         }
 
         t.addData("time", time.time())

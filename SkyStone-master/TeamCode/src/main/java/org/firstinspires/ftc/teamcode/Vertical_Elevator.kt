@@ -29,8 +29,9 @@ class Vertical_Elevator(map : HardwareMap, t : Telemetry){
 
     var stack_count = 0
 
-    val NUM_SAFE_1x2 = 6
-    val NUM_TOTAL = 6
+    var TargetPos = arrayOf(50, 120, 190, 270, 340, 475, 580, 676, 745)
+
+    var fine_tune = 1.0
 
     enum class slideState{
         STATE_RAISE_INCREMENT,
@@ -45,17 +46,6 @@ class Vertical_Elevator(map : HardwareMap, t : Telemetry){
         STATE_HIGH,
         STATE_UNKNOWN
     }
-    
-    enum class depositState{
-        STATE_PLACE,
-        STATE_RELEASE,
-        STATE_CLEAR,
-        STATE_IDLE
-    }
-    
-    var mDepositState = depositState.STATE_IDLE
-    var mDepositTime = ElapsedTime()
-    var depositTarget = 0
 
     var mSlideState = slideState.STATE_IDLE
 
@@ -64,7 +54,6 @@ class Vertical_Elevator(map : HardwareMap, t : Telemetry){
         touch.mode = DigitalChannel.Mode.INPUT
         motors[1].motor.direction = DcMotorSimple.Direction.REVERSE
         motors.map{
-            it.motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE)
             it.motor.mode = DcMotor.RunMode.STOP_AND_RESET_ENCODER
             it.motor.mode = DcMotor.RunMode.RUN_WITHOUT_ENCODER
         }
@@ -90,7 +79,7 @@ class Vertical_Elevator(map : HardwareMap, t : Telemetry){
         if(!isDropped){
             when(getBoundaryConditions()){
                 slideBoundary.STATE_OPTIMAL ->
-                    motors.map{ it.setPower(power/* + 0.3*/) }
+                    motors.map{ it.setPower(power + 0.3) }
                 slideBoundary.STATE_LOW ->
                     motors.map { it.setPower(power) }
                 slideBoundary.STATE_UNKNOWN ->
@@ -103,11 +92,6 @@ class Vertical_Elevator(map : HardwareMap, t : Telemetry){
         }
 
         telemetry.addData("Speed Set", power)
-    }
-    
-    fun newDepositState(state : depositState){
-        mDepositState = state
-        mDepositTime.reset()
     }
 
     fun getLiftHeight() : Double{
@@ -131,19 +115,11 @@ class Vertical_Elevator(map : HardwareMap, t : Telemetry){
     }
 
     fun increment_stack_count(){
-        stack_count++
+        stack_count += 1 % 10
     }
 
     fun decrement_stack_count(){
-        stack_count--
-    }
-
-    fun getTargetHeight() : Int{
-        return when{
-            stack_count >= (NUM_TOTAL - NUM_SAFE_1x2) -> stack_count - (NUM_TOTAL - NUM_SAFE_1x2)
-            stack_count < (NUM_TOTAL - NUM_SAFE_1x2) -> (stack_count / 2)
-            else -> 0
-        }
+        stack_count = Math.abs(stack_count - 1)
     }
 
     fun setTargetPosition(target : Int){
@@ -159,55 +135,27 @@ class Vertical_Elevator(map : HardwareMap, t : Telemetry){
     fun setTargetPosBasic(target: Int, power: Double){
         motors.map {
             if(stack_count > 1){
+                it.motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE)
                 if(getLiftHeight() < (target)){
-                    it.setPower(power)
+                    it.motor.power = power
                 }else if(getLiftHeight() >= (target)) {
-                    it.setPower(0.3)
+                    it.motor.power = 0.3
                 }
             }else if(stack_count <= 1){
+                it.motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE)
                 if(getLiftHeight() < target){
-                    it.setPower(power)
+                    it.motor.power = power
                 }else if(getLiftHeight() >= target) {
-                    it.setPower(0.3)
+                    it.motor.power = 0.3
                 }
             }
             if(power <= 0.0){
                 telemetry.addData("State:", "Dropping")
                 if(getLiftHeight() > (target)){
-                    it.setPower(power)
+                    it.motor.power = power
                 }else if(getLiftHeight() <= (target)) {
-                    it.setPower(0.0)
+                    it.motor.power = 0.0
                 }
-            }
-        }
-    }
-    
-    fun secureDeposit(){
-        setTargetPosBasic(getLiftHeight() - 30, -0.25) //tune the encoder decrement based on desired drop for placement
-    }
-    
-    fun clearDeposit(){
-        setTargetPosBasic(getLiftHeight() + 60, -0.25) //tune the encoder increment based on desired clear distance for placement
-    }
-    
-    fun runDepositAutomation(){
-        if (mDepositState == depositState.STATE_PLACE){
-            secureDeposit()
-            if (abs(getLiftHeight() - depositTarget) < 10){
-                newDepositState(depositState.STATE_RELEASE)
-            }
-        }
-        else if (mDepositState == depositState.STATE_RELEASE){
-            //insert flipper code pass-in
-            if (mDepositTime.time() >= 0.5){
-                depositTarget = getLiftHeight() + 60
-                newDepositState(depositState.STATE_CLEAR)
-            }
-        }
-        else if (mDepositState == depositSTate.STATE_CLEAR){
-            clearDeposit()
-            if (abs(getLiftHeight() - depositTarget) < 10){
-                newDepositState(depositState.STATE_IDLE)
             }
         }
     }
@@ -235,29 +183,32 @@ class Vertical_Elevator(map : HardwareMap, t : Telemetry){
         if(mSlideState == slideState.STATE_RAISE_INCREMENT){
             newState(slideState.STATE_IDLE)
         }
-        else if (mSlideState == slideState.STATE_RAISE){
-            if(stack_count == 1){
-                setTargetPosBasic(30, 1.0)
-            } else if(stack_count == 2){
-                setTargetPosBasic(100, 1.0)
-            } else if(stack_count == 3){
-                setTargetPosBasic(170, 1.0)
-            } else if(stack_count == 4){
-                setTargetPosBasic(250, 1.0)
+        else if (mSlideState == slideState.STATE_RAISE) {
+            fine_tune = 0.5
+            if(stack_count != 0){
+                setTargetPosBasic(TargetPos[stack_count - 1], 1.0)
+                if (getLiftHeight() >= TargetPos[stack_count - 1]){
+                    newState(slideState.STATE_IDLE)
+                }
+            }else if(stack_count == 0){
+                setTargetPosBasic(TargetPos[stack_count]/2, 1.0)
+                if (getLiftHeight() >= TargetPos[stack_count]/2){
+                    newState(slideState.STATE_IDLE)
+                }
             }
-            //newState(slideState.STATE_IDLE)
         }
         else if (mSlideState == slideState.STATE_DROP){
-            setTargetPosBasic(10, -0.25)
-            if(getLiftHeight() <= 10){
+            fine_tune = 1.0
+            setTargetPosBasic(6, -0.25)
+            if(getLiftHeight() <= 2){
                 newState(slideState.STATE_IDLE)
             }
         }
         else if (mSlideState == slideState.STATE_IDLE){
-            if(g.right_stick_y.toDouble() <= 0){
-                setPower(0.3 * g.right_stick_y.toDouble())
-            }else if(g.right_stick_y.toDouble() > 0){
-                setPower(g.right_stick_y.toDouble())
+            if(g.right_stick_y < 0){
+                setPower(-0.5 * g.right_stick_y)
+            }else{
+                setPower(-0.3 * g.right_stick_y)
             }
 
         }
@@ -268,25 +219,5 @@ class Vertical_Elevator(map : HardwareMap, t : Telemetry){
         telemetry.addData("Level:", stack_count)
         telemetry.addData("Slide Motor 1 Target: ", target)
         telemetry.addData("Slide Motor 2 Target: ", target)
-    }
-
-    fun operate(state : slideState){
-        mSlideState = state
-
-        if (mSlideState == slideState.STATE_RAISE){
-            setTargetPosition(925)
-            setPower(0.0)
-            newState(slideState.STATE_IDLE)
-        }
-        else if (mSlideState == slideState.STATE_DROP){
-            setTargetPosition(0)
-            if (getBoundaryConditions() == slideBoundary.STATE_LOW){
-                setPower(0.0)
-                newState(slideState.STATE_IDLE)
-            }
-        } else{
-            telemetry.addData("You fucked up", getLiftHeight())
-        }
-        write()
     }
 }

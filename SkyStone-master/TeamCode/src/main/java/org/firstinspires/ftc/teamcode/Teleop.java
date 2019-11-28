@@ -42,6 +42,7 @@ public class Teleop extends OpMode{
 
     @Override public void start(){
         flipper.start();
+        intake.start();
     }
 
     public void loop(){
@@ -60,6 +61,7 @@ public class Teleop extends OpMode{
         Vector2 v = new Vector2(gamepad1.left_stick_x, gamepad1.left_stick_y);
         v.rotate(-drive.getExternalHeading());
 
+        telemetry.addData("Case: ", flipper.getRcase());
         telemetry.addData("Is Dropped: ", elevator.isDropped());
 
         telemetry.addData("Boundry Condition", elevator.getBoundaryConditions());
@@ -89,7 +91,6 @@ public class Teleop extends OpMode{
         telemetry.addData("Slide Motor 2 Pos: ", elevator.getMotors()[1].getCurrentPosition());
 
         telemetry.addData("Slide Power: ", gamepad2.right_stick_y);
-
         flipper.ShowPos();
     }
 }
