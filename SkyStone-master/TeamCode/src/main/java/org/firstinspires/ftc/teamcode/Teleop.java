@@ -86,7 +86,7 @@ public class Teleop extends OpMode{
         telemetry.addData("Case: ", flipper.getRcase());
         telemetry.addData("Is Dropped: ", elevator.isDropped());
 
-        telemetry.addData("Boundry Condition", elevator.getBoundaryConditions());
+        telemetry.addData("Boundary Condition", elevator.getBoundaryConditions());
 
         telemetry.addData("Drive Vector: ", v.toString());
 

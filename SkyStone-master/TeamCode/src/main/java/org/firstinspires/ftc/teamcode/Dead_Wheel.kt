@@ -1,6 +1,5 @@
 package org.firstinspires.ftc.teamcode
 
-import com.qualcomm.robotcore.util.Range
 import org.openftc.revextensions2.RevBulkData
 import kotlin.math.abs
 
@@ -15,7 +14,11 @@ class Dead_Wheel(encoder: MA3_Encoder) {
     fun update(data : RevBulkData){
         encoder.update(data)
         dist = encoder.getDist() * 1.88976 / 6
-        POC = ((encoder.pos % (Math.PI / 2)) - (Math.PI / 4)) / abs((encoder.pos % (Math.PI / 2)) - (Math.PI / 4))
+        POC = ((angleWrap(encoder.pos) % (Math.PI / 2)) - (Math.PI / 4)) / abs((angleWrap(encoder.pos) % (Math.PI / 2)) - (Math.PI / 4))
+    }
+
+    fun angleWrap(angle : Double) : Double{
+        return (angle + (2 * Math.PI)) % (2 * Math.PI)
     }
 
     fun setBehavior(m : Double, b : Double){

@@ -34,11 +34,13 @@ class MA3_Encoder(name : String, hardwareMap: HardwareMap, offset : Double) {
     fun update(data : RevBulkData) {
         pos = (data.getAnalogInputValue(encoder).toDouble() * (2 * Math.PI / 520) - offset - base + (2 * Math.PI)) % (2 * Math.PI)
         //pos = (data.getAnalogInputValue(encoder).toDouble())// * (2 * Math.PI / 3.3))
+
         when {
             pos - previous < -(3 * Math.PI) / 2 -> e += ((2 * Math.PI) + (pos - previous))
             pos - previous > (3 * Math.PI) / 2 -> e -= ((2 * Math.PI) + (previous - pos))
             else -> e += (pos - previous)
         }
+
         previous = pos
         pos = (data.getAnalogInputValue(encoder).toDouble() * (2 * Math.PI / 520) - offset + (2 * Math.PI)) % (2 * Math.PI)
     }
