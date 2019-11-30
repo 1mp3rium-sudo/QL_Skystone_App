@@ -1,17 +1,18 @@
 package org.firstinspires.ftc.teamcode
 
-import com.qualcomm.hardware.bosch.BNO055IMU
+import com.qualcomm.robotcore.hardware.DcMotorSimple
 import com.qualcomm.robotcore.hardware.Gamepad
 import com.qualcomm.robotcore.hardware.HardwareMap
+import com.qualcomm.robotcore.hardware.Servo
+import org.openftc.revextensions2.RevBulkData
 
-class GrabberV2(h: HardwareMap){
+class Grabber(hardwareMap: HardwareMap) {
     var grabbers : Array<Caching_Servo>
 
     var write_index = 0
-    internal var imu: BNO055IMU? = null
 
     init{
-        grabbers = arrayOf(Caching_Servo(h, "grabber_1"), Caching_Servo(h, "grabber_2"))
+        grabbers = arrayOf(Caching_Servo(hardwareMap, "grabber_1"), Caching_Servo(hardwareMap, "grabber_2"))
     }
 
     fun write(){
@@ -19,26 +20,26 @@ class GrabberV2(h: HardwareMap){
         write_index = (write_index + 1) % 2
     }
 
-    fun grab(grabPos: Double, clampPos: Double){
-        grabbers[0].setPosition(grabPos)
-        grabbers[1].setPosition(clampPos)
+    fun clamp(pos: Double){
+        grabbers[0].setPosition(pos)
+        grabbers[1].setPosition(1-pos)
     }
 
     fun unclamp(){
-        grabbers[0].setPosition(0.0)
-        grabbers[1].setPosition(0.0)
+        grabbers[0].setPosition(0.5)
+        grabbers[1].setPosition(0.5)
     }
 
     fun initialize(){
         grabbers[0].setPosition(0.0)
-        grabbers[1].setPosition(0.0)
+        grabbers[1].setPosition(1.0)
         write()
         write()
     }
 
     //Soon this will go into automation and there will be no need for operation
 
-    fun operate(g: Gamepad){
+    fun operate(clamp_pos: Double, g:Gamepad){
         var clickL = false
         var clickR = false
 
@@ -49,12 +50,11 @@ class GrabberV2(h: HardwareMap){
         }
 
         if(clickR){
-            grab(0.9, 0.1)
+            clamp(clamp_pos)
         }else if (clickL){
             unclamp()
         }
 
         write()
     }
-
 }

@@ -34,7 +34,7 @@ public class Runner_Mecanum_Drive extends MecanumDrive {
     }
 
     public void setLocalizer(HardwareMap h){
-        localizer = new Two_Wheel_Localizer(new Dead_Wheel(new MA3_Encoder(0, 0)), new Dead_Wheel(new MA3_Encoder(2, 0)), h.get(ExpansionHubEx.class, "Expansion Hub 2"));
+        //localizer = new Two_Wheel_Localizer(new Dead_Wheel(new MA3_Encoder("a0", 0)), new Dead_Wheel(new MA3_Encoder(2, 0)), h.get(ExpansionHubEx.class, "Expansion Hub 2"));
     }
 
     @Override

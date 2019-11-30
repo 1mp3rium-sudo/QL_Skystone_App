@@ -6,6 +6,7 @@ import com.qualcomm.robotcore.hardware.Gamepad
 import com.qualcomm.robotcore.hardware.HardwareMap
 import com.qualcomm.robotcore.util.ElapsedTime
 import org.openftc.revextensions2.RevBulkData
+import java.util.*
 
 class Intake(hardwareMap: HardwareMap) {
     var motors : Array<Caching_Motor>
@@ -14,12 +15,17 @@ class Intake(hardwareMap: HardwareMap) {
     var write_index = 0
     val open : Array<Caching_Servo>
     var time = ElapsedTime()
+    var timeAll = 0.0
 
     init{
         motors = arrayOf(Caching_Motor(hardwareMap, "intake_left"), Caching_Motor(hardwareMap, "intake_right"))
         open = arrayOf(Caching_Servo(hardwareMap, "intake_left_jaw"), Caching_Servo(hardwareMap, "intake_right_jaw"))
-        close()
         time.startTime()
+        initIntake()
+    }
+
+    fun start(){
+        close()
     }
 
     enum class clamp{
@@ -45,14 +51,19 @@ class Intake(hardwareMap: HardwareMap) {
         motors[1].setPower(-power)
     }
 
+    fun initIntake(){
+        open[0].setPosition(0.5)
+        open[1].setPosition(0.5)
+    }
+
     fun open(){
-        open[0].setPosition(.7)
-        open[1].setPosition(.3)
+        open[0].setPosition(0.0)
+        open[1].setPosition(1.0)
     }
 
     fun close(){
-        open[0].setPosition(1.0) //0.7
-        open[1].setPosition(0.0) //0.2
+        open[0].setPosition(0.7) //0.7
+        open[1].setPosition(0.25) //0.2
     }
 
     fun newState(clampState: clamp){
@@ -63,13 +74,18 @@ class Intake(hardwareMap: HardwareMap) {
     fun operate(g1 : Gamepad, g2: Gamepad){
         setPower(0.3 * (g1.right_trigger - g1.left_trigger).toDouble())
 
-        if(g2.y){
+        if(g2.left_bumper || g2.dpad_left || g2.dpad_right || g2.left_trigger > 0.5 || g2.right_trigger > 0.5){
             newState(clamp.OPEN)
+            timeAll = 5.0
+        }
+        if(g2.b ){
+            newState(clamp.OPEN)
+            timeAll = 2.0
         }
 
         if(clampst == clamp.OPEN){
             open()
-            if (time.time() >= 3){
+            if (time.time() >= timeAll){
                 close()
             }
         }

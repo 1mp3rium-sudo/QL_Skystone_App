@@ -9,7 +9,7 @@ class Caching_Motor(hardwareMap : HardwareMap, name : String) {
     val motor : DcMotor = hardwareMap.get(DcMotor::class.java, name)
     var prev_power = 0.0
 
-    var query = 0.0
+    var query = -2.0
 
     var pos = 0
 
@@ -22,16 +22,21 @@ class Caching_Motor(hardwareMap : HardwareMap, name : String) {
         if (abs(prev_power - power) > EPSILON){
             query = power
         }
+        else{
+            query = -2.0
+        }
     }
 
     fun write(){
-        motor.power = query
-        prev_power = query
+        if (query != -2.0) {
+            motor.power = query
+            prev_power = query
+        }
     }
 
-    fun write(rate : Double){
+    fun write(rate : Double) {
         current_write++
-        if (prev_write.toDouble() / current_write.toDouble() < rate){
+        if (prev_write.toDouble() / current_write.toDouble() < rate) {
             write()
             prev_write = current_write
         }

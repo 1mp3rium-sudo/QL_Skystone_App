@@ -1,10 +1,13 @@
 package org.firstinspires.ftc.teamcode
 
+import com.acmerobotics.roadrunner.geometry.Vector2d
 import com.qualcomm.hardware.bosch.BNO055IMU
+import com.qualcomm.hardware.lynx.LynxEmbeddedIMU
 import com.qualcomm.robotcore.hardware.DcMotor
 import com.qualcomm.robotcore.hardware.DcMotorSimple
 import com.qualcomm.robotcore.hardware.Gamepad
 import com.qualcomm.robotcore.hardware.HardwareMap
+import com.qualcomm.robotcore.util.ElapsedTime
 import org.firstinspires.ftc.robotcore.external.navigation.Orientation
 import org.firstinspires.ftc.teamcode.Universal.Math.Pose
 import org.firstinspires.ftc.teamcode.Universal.Math.Vector2
@@ -20,7 +23,7 @@ class Mecanum_Drive(hardwareMap : HardwareMap){
     var prev_pos = ArrayList<Double>()
     var prev_heading = 0.0
 
-    val imu : BNO055IMU
+    val imu : LynxEmbeddedIMU
     val hub : ExpansionHubEx
 
     var currentWriteIndex = 0
@@ -37,7 +40,15 @@ class Mecanum_Drive(hardwareMap : HardwareMap){
     var headingAccessCount = 0
     val headingUpdateFrequency = 0.1
 
+    var time = ElapsedTime()
+
+    var scale = 1.0
+
     var orientation : Orientation
+    var fine_tune = 1.0
+
+    var previous = false
+    var slow_mode = false
 
     companion object{
         var refresh_rate = 0.5  //ngl this is kinda scary but you do what u gotta do to get 300 hz
@@ -62,6 +73,7 @@ class Mecanum_Drive(hardwareMap : HardwareMap){
         parameters.angleUnit = BNO055IMU.AngleUnit.RADIANS
         imu.initialize(parameters)
         orientation = imu.angularOrientation
+        time.startTime()
     }
 
     private fun tweakRefreshRate(gamepad : Gamepad){
@@ -91,35 +103,72 @@ class Mecanum_Drive(hardwareMap : HardwareMap){
         return refresh_rate
     }
 
+    fun getPower() : Array<Double>{
+        return arrayOf(motors[0].prev_power, motors[1].prev_power, motors[2].prev_power, motors[3].prev_power)
+    }
+
     fun drive(gamepad : Gamepad){
-        tweakRefreshRate(gamepad)
-        setPower(gamepad.left_stick_y.toDouble(), gamepad.left_stick_x.toDouble(), -gamepad.right_stick_x.toDouble())
+        //tweakRefreshRate(gamepad)
+        if (isPress(gamepad.right_bumper)){
+            slow_mode = !slow_mode
+        }
+        previous = gamepad.right_bumper
+
+        if (slow_mode){
+            fine_tune = 0.5
+        }
+        else{
+            fine_tune = 1.0
+        }
+        setPower(fine_tune * gamepad.left_stick_y.toDouble(), fine_tune * gamepad.left_stick_x.toDouble(), -0.5 * gamepad.right_stick_x.toDouble())
         write()
     }
 
-    fun f_drive(gamepad : Gamepad){
-        tweakRefreshRate(gamepad)
-        val r = hypot(gamepad.left_stick_y, gamepad.left_stick_x)
-        var theta = atan2(gamepad.left_stick_y, gamepad.left_stick_x).toDouble()
-        theta -= getExternalHeading()
+    fun isPress(test : Boolean) : Boolean{
+        return test && !previous
+    }
+
+    fun angleWrap(angle : Double) : Double{
+        return (angle + (2 * Math.PI)) % (2 * Math.PI)
+    }
+
+    fun f_drive(gamepad1 : Gamepad){
+        //tweakRefreshRate(gamepad1)
+        if (isPress(gamepad1.right_bumper)){
+            slow_mode = !slow_mode
+        }
+        previous = gamepad1.right_bumper
+
+        if (slow_mode){
+            fine_tune = 0.5
+        }
+        else{
+            fine_tune = 1.0
+        }
+
+        val r = hypot(gamepad1.left_stick_y, gamepad1.left_stick_x)
+        val theta = atan2(/*-*/gamepad1.left_stick_y, gamepad1.left_stick_x).toDouble()
         val v = Vector2(r * cos(theta), r * sin(theta))
-        setPower(v, -gamepad.right_stick_x.toDouble())
+        v.rotate(angleWrap(getExternalHeading()))
+        setPower(v, -0.5 * gamepad1.right_stick_x)
         write()
     }
 
-    fun read(data : RevBulkData){
-        motors.forEach{
+    fun read(data : RevBulkData) {
+        motors.forEach {
             it.read(data)
         }
         headingReadCount++
-        if (headingAccessCount.toDouble() / headingReadCount.toDouble() < headingUpdateFrequency){
+        if (headingAccessCount.toDouble() / headingReadCount.toDouble() < headingUpdateFrequency) {
             headingAccessCount++
             currHeading = imu.angularOrientation.firstAngle.toDouble()
             orientation = imu.angularOrientation
         }
+        headingReadCount++
     }
 
     fun setPower(y : Double, x : Double, rightX : Double){
+
         var FrontLeftVal = y - x + rightX
         var FrontRightVal = y + x - rightX
         var BackLeftVal = y + x + rightX

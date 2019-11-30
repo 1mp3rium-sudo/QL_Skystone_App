@@ -31,8 +31,8 @@ class Two_Wheel_Localizer(ex : Dead_Wheel, ey : Dead_Wheel, hub : ExpansionHubEx
     }
 
     fun update(data : RevBulkData, dt : Long) : Pose2d{
-        ex.update(data, dt)
-        ey.update(data, dt)
+        ex.update(data)
+        ey.update(data)
         val orientation = imu.angularOrientation
         val rc_offset = Vector2d((ex.dist - prev_x_dist) - ((TRACK_WIDTH / 2) * orientation.firstAngle), ey.dist - prev_y_dist)
         val accel = -(2*prev_velo) / dt
@@ -43,12 +43,7 @@ class Two_Wheel_Localizer(ex : Dead_Wheel, ey : Dead_Wheel, hub : ExpansionHubEx
         }
         else{
             val w = (orientation.firstAngle - prev_heading)
-            if (w != 0.0){
-                offset = constantVeloUpdate(rc_offset, w).rotated(prev_heading)
-            }
-            else{
-                offset = rc_offset.rotated(prev_heading)
-            }
+            offset = constantVeloUpdate(rc_offset, w).rotated(prev_heading)
         }
         pos = pos.plus(Pose2d(offset, orientation.firstAngle - prev_heading))
         prev_heading = orientation.firstAngle.toDouble()
@@ -69,9 +64,9 @@ class Two_Wheel_Localizer(ex : Dead_Wheel, ey : Dead_Wheel, hub : ExpansionHubEx
     }
 
     fun constantAccelOdometryUpdate(offset : Vector2d, a : Double, dt : Long) : Vector2d {
-        var u : Double = 0.0
-        var s : Double = 0.0
-        var v : Double = 0.0
+        var u = 0.0
+        var s = 0.0
+        var v = 0.0
         if (a > 0){
             val cosTerm = Math.cos(Math.pow(prev_velo, 2.0) / (2 * a))
             val sinTerm = Math.sin(Math.pow(prev_velo, 2.0) / (2 * a))
