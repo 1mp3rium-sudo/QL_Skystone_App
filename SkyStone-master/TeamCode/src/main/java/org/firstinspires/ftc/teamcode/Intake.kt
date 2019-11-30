@@ -78,7 +78,7 @@ class Intake(hardwareMap: HardwareMap) {
             newState(clamp.OPEN)
             timeAll = 5.0
         }
-        if(g2.b){
+        if(g2.b ){
             newState(clamp.OPEN)
             timeAll = 2.0
         }

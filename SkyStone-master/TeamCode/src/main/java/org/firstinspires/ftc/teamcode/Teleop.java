@@ -21,6 +21,9 @@ public class Teleop extends OpMode{
 
     private ExpansionHubEx hub;
     private ExpansionHubEx hub2;
+    private boolean mode;
+
+    private boolean previous = false;
 
     private long prev_time = System.currentTimeMillis();
 
@@ -45,21 +48,40 @@ public class Teleop extends OpMode{
         intake.start();
     }
 
+    public boolean isPress(boolean value){
+        boolean val = value && !previous;
+        previous = value;
+        return val;
+    }
+
     public void loop(){
         drive.read(hub.getBulkInputData());
         elevator.read(hub2.getBulkInputData());
         intake.read(hub2.getBulkInputData());
 
-        drive.drive(gamepad1);
+        if(isPress(gamepad1.b)){
+            mode = !mode;
+        }
+
+        if (mode){
+            drive.f_drive(gamepad1);
+        }
+        else{
+            drive.drive(gamepad1);
+        }
+
         elevator.operate(gamepad2);
         intake.operate(gamepad1, gamepad2);
         //grabber.operate(gamepad2);
         flipper.operate(gamepad1, gamepad2);
+        telemetry.addData("DRIVETRAIN MODE", (mode ? "Field Centric" : "Robot Centric"));
 
         telemetry.addData("Angle: ", drive.getExternalHeading());
 
         Vector2 v = new Vector2(gamepad1.left_stick_x, gamepad1.left_stick_y);
         v.rotate(-drive.getExternalHeading());
+
+        telemetry.addData("Slide Error: ", elevator.getError());
 
         telemetry.addData("Case: ", flipper.getRcase());
         telemetry.addData("Is Dropped: ", elevator.isDropped());

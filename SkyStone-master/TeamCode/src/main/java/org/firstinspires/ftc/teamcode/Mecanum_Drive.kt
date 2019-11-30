@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode
 
 import com.acmerobotics.roadrunner.geometry.Vector2d
 import com.qualcomm.hardware.bosch.BNO055IMU
+import com.qualcomm.hardware.lynx.LynxEmbeddedIMU
 import com.qualcomm.robotcore.hardware.DcMotor
 import com.qualcomm.robotcore.hardware.DcMotorSimple
 import com.qualcomm.robotcore.hardware.Gamepad
@@ -22,7 +23,7 @@ class Mecanum_Drive(hardwareMap : HardwareMap){
     var prev_pos = ArrayList<Double>()
     var prev_heading = 0.0
 
-    val imu : BNO055IMU
+    val imu : LynxEmbeddedIMU
     val hub : ExpansionHubEx
 
     var currentWriteIndex = 0
@@ -108,10 +109,10 @@ class Mecanum_Drive(hardwareMap : HardwareMap){
 
     fun drive(gamepad : Gamepad){
         //tweakRefreshRate(gamepad)
-        if (isPress(gamepad.left_stick_button)){
+        if (isPress(gamepad.right_bumper)){
             slow_mode = !slow_mode
         }
-        previous = gamepad.left_stick_button
+        previous = gamepad.right_bumper
 
         if (slow_mode){
             fine_tune = 0.5
@@ -119,7 +120,7 @@ class Mecanum_Drive(hardwareMap : HardwareMap){
         else{
             fine_tune = 1.0
         }
-        setPower(gamepad.left_stick_y.toDouble(), gamepad.left_stick_x.toDouble(), -0.5 * gamepad.right_stick_x.toDouble())
+        setPower(fine_tune * gamepad.left_stick_y.toDouble(), fine_tune * gamepad.left_stick_x.toDouble(), -0.5 * gamepad.right_stick_x.toDouble())
         write()
     }
 
@@ -127,13 +128,29 @@ class Mecanum_Drive(hardwareMap : HardwareMap){
         return test && !previous
     }
 
+    fun angleWrap(angle : Double) : Double{
+        return (angle + (2 * Math.PI)) % (2 * Math.PI)
+    }
+
     fun f_drive(gamepad1 : Gamepad){
-        tweakRefreshRate(gamepad1)
+        //tweakRefreshRate(gamepad1)
+        if (isPress(gamepad1.right_bumper)){
+            slow_mode = !slow_mode
+        }
+        previous = gamepad1.right_bumper
+
+        if (slow_mode){
+            fine_tune = 0.5
+        }
+        else{
+            fine_tune = 1.0
+        }
+
         val r = hypot(gamepad1.left_stick_y, gamepad1.left_stick_x)
-        var theta = atan2(/*-*/gamepad1.left_stick_y, gamepad1.left_stick_x).toDouble()
-        theta -= getExternalHeading()
+        val theta = atan2(/*-*/gamepad1.left_stick_y, gamepad1.left_stick_x).toDouble()
         val v = Vector2(r * cos(theta), r * sin(theta))
-        setPower(v, -0.3 * gamepad1.right_stick_x)
+        v.rotate(angleWrap(getExternalHeading()))
+        setPower(v, -0.5 * gamepad1.right_stick_x)
         write()
     }
 
@@ -147,6 +164,7 @@ class Mecanum_Drive(hardwareMap : HardwareMap){
             currHeading = imu.angularOrientation.firstAngle.toDouble()
             orientation = imu.angularOrientation
         }
+        headingReadCount++
     }
 
     fun setPower(y : Double, x : Double, rightX : Double){
@@ -165,10 +183,10 @@ class Mecanum_Drive(hardwareMap : HardwareMap){
             BackLeftVal /= wheelPowers[3]
             BackRightVal /= wheelPowers[3]
         }
-        motors[0].setPower(fine_tune * FrontLeftVal)
-        motors[1].setPower(fine_tune * BackLeftVal)
-        motors[2].setPower(fine_tune * BackRightVal)
-        motors[3].setPower(fine_tune * FrontRightVal)
+        motors[0].setPower(FrontLeftVal)
+        motors[1].setPower(BackLeftVal)
+        motors[2].setPower(BackRightVal)
+        motors[3].setPower(FrontRightVal)
     }
 
     fun setPower(v : Vector2, rightX : Double){

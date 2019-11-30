@@ -19,11 +19,11 @@ public class CDS_TEST extends OpMode {
 
     public void loop(){
         telemetry.addData("Distance (cm)", String.format(Locale.US, "%.02f", sensorDistance.getDistance(DistanceUnit.CM)));
-        if(sensorDistance.getDistance(DistanceUnit.CM) >= 6.5 && sensorDistance.getDistance(DistanceUnit.CM) <= 8.5){
+        if(sensorDistance.getDistance(DistanceUnit.CM) >= 6.5 && sensorDistance.getDistance(DistanceUnit.CM) <= 9.25){
             //Case regular
             //6.75 - 7.5
             rcase = 0;
-        }else if(sensorDistance.getDistance(DistanceUnit.CM) >= 5.45 && sensorDistance.getDistance(DistanceUnit.CM) <= 6.74){
+        }else if(sensorDistance.getDistance(DistanceUnit.CM) >= 5.45 && sensorDistance.getDistance(DistanceUnit.CM) <= 6.45){
             //Case left
             //5.45 - 6
             rcase = 1;

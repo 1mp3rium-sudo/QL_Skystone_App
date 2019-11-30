@@ -29,9 +29,22 @@ class Vertical_Elevator(map : HardwareMap, t : Telemetry){
 
     var stack_count = 0
 
-    var TargetPos = arrayOf(50, 120, 190, 270, 340, 475, 580, 676, 745)
+    var TargetPos = arrayOf(10, 108, 200, 280, 360, 440, 515, 600, 680, 755, 836, 913)//arrayOf(10, 50, 113, 205, 285, 365, 445, 520, 605, 760, 841, 918)
 
     var fine_tune = 1.0
+    var error = 0.0
+
+    var lastError = 0.0
+
+    var lastTime = System.currentTimeMillis()
+
+    var holdTime = ElapsedTime()
+
+    companion object{
+        const val kp = 0.00875
+        const val kd = 0.0
+        const val FF = 0.0001
+    }
 
     enum class slideState{
         STATE_RAISE_INCREMENT,
@@ -58,6 +71,28 @@ class Vertical_Elevator(map : HardwareMap, t : Telemetry){
             it.motor.mode = DcMotor.RunMode.RUN_WITHOUT_ENCODER
         }
         dclickt.startTime()
+        holdTime.startTime()
+    }
+
+    fun PIDController(TargetLevel : Int){
+        error = TargetPos[TargetLevel] - getLiftHeight()
+
+        var prop_gain = kp * error
+        var deriv_gain = kd * ((error - lastError) / (System.currentTimeMillis() - lastTime))
+        var ff_gain = 0.0
+        if (TargetLevel > 8) {
+            ff_gain = FF * TargetPos[TargetLevel]
+        }
+        lastTime = System.currentTimeMillis()
+        var power = prop_gain + deriv_gain + ff_gain
+
+        if (abs(power) > 0.001) {
+            setPower(power)
+        }
+        else{
+            setPower(0.0)
+        }
+        lastError = error
     }
 
     fun read(data : RevBulkData){
@@ -79,11 +114,11 @@ class Vertical_Elevator(map : HardwareMap, t : Telemetry){
         if(!isDropped){
             when(getBoundaryConditions()){
                 slideBoundary.STATE_OPTIMAL ->
-                    motors.map{ it.setPower(power + 0.3) }
+                    motors.map{ it.setPower(Range.clip(power + 0.3, -1.0, 1.0)) }
                 slideBoundary.STATE_LOW ->
-                    motors.map { it.setPower(power) }
+                    motors.map { it.setPower(Range.clip(power, -1.0, 1.0)) }
                 slideBoundary.STATE_UNKNOWN ->
-                    motors.map{it.setPower(power)}
+                    motors.map{it.setPower(Range.clip(power, -1.0, 1.0))}
             }
         }else if(isDropped){
             val newPower = Range.clip(power, 0.0, 1.0)
@@ -99,7 +134,7 @@ class Vertical_Elevator(map : HardwareMap, t : Telemetry){
     }
 
     fun getBoundaryConditions() : slideBoundary{
-        if (getLiftHeight() >= 100){
+        if (getLiftHeight() >= 50){
             return slideBoundary.STATE_OPTIMAL
         }
         else if (getLiftHeight() < 100){
@@ -115,7 +150,7 @@ class Vertical_Elevator(map : HardwareMap, t : Telemetry){
     }
 
     fun increment_stack_count(){
-        stack_count += 1 % 10
+        stack_count = (stack_count + 1) % 12
     }
 
     fun decrement_stack_count(){
@@ -185,17 +220,27 @@ class Vertical_Elevator(map : HardwareMap, t : Telemetry){
         }
         else if (mSlideState == slideState.STATE_RAISE) {
             fine_tune = 0.5
-            if(stack_count != 0){
-                setTargetPosBasic(TargetPos[stack_count - 1], 1.0)
-                if (getLiftHeight() >= TargetPos[stack_count - 1]){
-                    newState(slideState.STATE_IDLE)
-                }
-            }else if(stack_count == 0){
-                setTargetPosBasic(TargetPos[stack_count]/2, 1.0)
-                if (getLiftHeight() >= TargetPos[stack_count]/2){
+            PIDController(stack_count)
+            if (abs(getLiftHeight() - TargetPos[stack_count]) > 20){
+                holdTime.reset()
+            }
+            else{
+                if (holdTime.time() >= 0.5) {
                     newState(slideState.STATE_IDLE)
                 }
             }
+            /*if(stack_count != 0){
+                PIDController(stack_count - 1)
+                if (abs(getLiftHeight() - TargetPos[stack_count - 1]) < 5){
+                    newState(slideState.STATE_IDLE)
+                }
+            }else if(stack_count == 0){
+                PIDController(stack_count)
+                if (abs(getLiftHeight() - TargetPos[stack_count]) < 5){
+                    newState(slideState.STATE_IDLE)
+                }
+            }*/
+            write()
         }
         else if (mSlideState == slideState.STATE_DROP){
             fine_tune = 1.0
@@ -212,11 +257,12 @@ class Vertical_Elevator(map : HardwareMap, t : Telemetry){
             }
 
         }
-        if (mSlideState != slideState.STATE_RAISE) {
+        /*if (mSlideState != slideState.STATE_RAISE) {
             write()
-        }
-
+        }*/
+        write()
         telemetry.addData("Level:", stack_count)
+        telemetry.addData("Height: ", getLiftHeight())
         telemetry.addData("Slide Motor 1 Target: ", target)
         telemetry.addData("Slide Motor 2 Target: ", target)
     }

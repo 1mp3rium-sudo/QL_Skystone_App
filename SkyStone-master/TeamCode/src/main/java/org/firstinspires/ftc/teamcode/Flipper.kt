@@ -35,13 +35,13 @@ class Flipper(h : HardwareMap, telemetry: Telemetry){
         const val case_left_turn_value = 0.15
         const val case_center_turn_value = 0.5
 
-        const val handshake_flip_position = 0.5 //THIS IS GOING BACKWARDS 1 -> 0
+        const val handshake_flip_position = 0.45 //THIS IS GOING BACKWARDS 1 -> 0
 
         const val turnPos_IDOL = 0.4635
         const val flipperPos_IDOL = 0.97 //THIS IS GOING BACKWARDS 1 -> 0
-        const val DepositPos_IDOL = 0.025 //THIS IS GOING BACKWARDS 1 -> 0
+        const val DepositPos_IDOL = 0.0 //THIS IS GOING BACKWARDS 1 -> 0
 
-        const val DepositPos = 0.85
+        const val DepositPos = 0.82
         const val Deposit_Clearance_DROPPING_Block = 0.85
         const val Deposit_Clearance_HANDSHAKE = .1
 
@@ -115,11 +115,11 @@ class Flipper(h : HardwareMap, telemetry: Telemetry){
 
     private fun getCase() : Int{
         read()
-        if (dist >= 6.5 && dist <= 8.5) {
+        if (dist >= 6.5 && dist <= 9.25) {
             //Case regular
             //6.75 - 7.5
             rcase = 0
-        } else if (dist >= 5.45 && dist <= 6.74) {
+        } else if (dist >= 5.45 && dist <= 6.45) {
             //Case left
             //5.45 - 6
             rcase = 1
@@ -159,14 +159,17 @@ class Flipper(h : HardwareMap, telemetry: Telemetry){
         if(g2.b){
             newState(flip_state.STATE_IDLE)
         }
-        if(isPress(g1.right_bumper)){
+        if(isPress(g1.a)){
             if(grabbed){
                 resetPlatform()
+                grabbed = false
             }else{
                 grabPlatform()
+                grabbed = true
             }
-            previous = g1.right_bumper
         }
+        previous = g1.a
+
         if(g2.left_bumper){
             if(getCase() == 0) {
                 //Case regular
