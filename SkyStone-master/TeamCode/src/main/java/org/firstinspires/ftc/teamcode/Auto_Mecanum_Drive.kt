@@ -17,14 +17,11 @@ import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.math.*
 
-class Mecanum_Drive(hardwareMap : HardwareMap){
+class Auto_Mecanum_Drive(hardwareMap : HardwareMap){
     var motors = ArrayList<Caching_Motor>()
 
     var prev_pos = ArrayList<Double>()
     var prev_heading = 0.0
-
-    val imu : LynxEmbeddedIMU
-    val hub : ExpansionHubEx
 
     var currentWriteIndex = 0
 
@@ -35,16 +32,10 @@ class Mecanum_Drive(hardwareMap : HardwareMap){
 
     val EPSILON = 0.001
 
-    var currHeading = 0.0
-    var headingReadCount = 0
-    var headingAccessCount = 0
-    val headingUpdateFrequency = 0.1
-
     var time = ElapsedTime()
 
     var scale = 1.0
 
-    var orientation : Orientation
     var fine_tune = 1.0
 
     var previous = false
@@ -68,12 +59,6 @@ class Mecanum_Drive(hardwareMap : HardwareMap){
         motors[0].motor.direction = DcMotorSimple.Direction.REVERSE
         motors[1].motor.direction = DcMotorSimple.Direction.REVERSE
 
-        hub = hardwareMap.get(ExpansionHubEx::class.java, "Expansion Hub 2")
-        imu = LynxOptimizedI2cFactory.createLynxEmbeddedImu(hub.standardModule, 0)
-        val parameters = BNO055IMU.Parameters()
-        parameters.angleUnit = BNO055IMU.AngleUnit.RADIANS
-        imu.initialize(parameters)
-        orientation = imu.angularOrientation
         time.startTime()
     }
 
@@ -109,7 +94,7 @@ class Mecanum_Drive(hardwareMap : HardwareMap){
     }
 
     fun turnTo(heading : Double) : Boolean{
-        val error = heading - getExternalHeading()
+        val error = 0.0//heading - getExternalHeading()
         val power = kPa * error
         if (abs(error) > Math.toRadians(10.0)) {
             setPower(0.0, 0.0, power)
@@ -122,7 +107,7 @@ class Mecanum_Drive(hardwareMap : HardwareMap){
     }
 
     fun pivotTo(heading : Double, fPower : Double) : Boolean{
-        val error = heading - getExternalHeading()
+        val error = 0.0//heading - getExternalHeading()
         val power = kPa * error * 0.5
         if (abs(error) > Math.toRadians(10.0)) {
             setPower(fPower, 0.0, power)
@@ -159,7 +144,7 @@ class Mecanum_Drive(hardwareMap : HardwareMap){
         return (angle + (2 * Math.PI)) % (2 * Math.PI)
     }
 
-    fun f_drive(gamepad1 : Gamepad){
+    /*fun f_drive(gamepad1 : Gamepad){
         //tweakRefreshRate(gamepad1)
         if (isPress(gamepad1.right_bumper)){
             slow_mode = !slow_mode
@@ -179,18 +164,12 @@ class Mecanum_Drive(hardwareMap : HardwareMap){
         v.rotate(angleWrap(getExternalHeading()))
         setPower(v, -0.5 * gamepad1.right_stick_x)
         write()
-    }
+    }*/
 
     fun read(data : RevBulkData) {
         motors.forEach {
             it.read(data)
         }
-        if (headingAccessCount.toDouble() / headingReadCount.toDouble() < headingUpdateFrequency) {
-            headingAccessCount++
-            currHeading = imu.angularOrientation.firstAngle.toDouble()
-            orientation = imu.angularOrientation
-        }
-        headingReadCount++
     }
 
     fun setPower(y : Double, x : Double, rightX : Double){
@@ -222,42 +201,5 @@ class Mecanum_Drive(hardwareMap : HardwareMap){
     fun write(){
         motors[currentWriteIndex].write()
         currentWriteIndex = (currentWriteIndex + 1) % 4
-    }
-
-    fun getExternalHeading() : Double{
-        return orientation.firstAngle.toDouble()
-    }
-
-    fun getEstimatedPose(){
-        val wheelVelocities = ArrayList<Double>()
-        motors.forEachIndexed{index, motor ->
-            wheelVelocities.add(motor.getCurrentPosition() - prev_pos[index])
-            prev_pos[index] = motor.getCurrentPosition().toDouble()
-        }
-        val k = (TRACK_WIDTH + DRIVE_WIDTH) / 2.0
-        val (frontLeft, rearLeft, rearRight, frontRight) = wheelVelocities
-
-        val heading = getExternalHeading()
-        val offset = Pose(wheelVelocities.sum(), rearLeft + frontRight - frontLeft - rearRight, heading - prev_heading)
-        prev_heading = heading
-        relativeOdometryUpdate(offset)
-    }
-
-    fun relativeOdometryUpdate(robotPoseDelta : Pose){
-        val dtheta = robotPoseDelta.angle
-
-        val (sineTerm, cosTerm) = if (abs(dtheta) < EPSILON) {
-            1.0 - dtheta * dtheta / 6.0 to dtheta / 2.0
-        } else {
-            sin(dtheta) / dtheta to (1 - cos(dtheta)) / dtheta
-        }
-
-        val fieldPositionDelta = Vector2(sineTerm * robotPoseDelta.x - cosTerm * robotPoseDelta.y,
-                cosTerm * robotPoseDelta.x + sineTerm * robotPoseDelta.y)
-        fieldPositionDelta.rotate(pos.angle)
-
-        val fieldPoseDelta = Pose(fieldPositionDelta.x, fieldPositionDelta.y, dtheta)
-
-        pos.add(fieldPoseDelta)
     }
 }

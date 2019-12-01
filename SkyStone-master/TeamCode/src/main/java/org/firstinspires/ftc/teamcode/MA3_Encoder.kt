@@ -36,8 +36,8 @@ class MA3_Encoder(name : String, hardwareMap: HardwareMap, offset : Double) {
         //pos = (data.getAnalogInputValue(encoder).toDouble())// * (2 * Math.PI / 3.3))
 
         when {
-            pos - previous < -(3 * Math.PI) / 2 -> e += ((2 * Math.PI) + (pos - previous))
-            pos - previous > (3 * Math.PI) / 2 -> e -= ((2 * Math.PI) + (previous - pos))
+            pos - previous < Math.toRadians(-200.0) -> e += ((2 * Math.PI) + (pos - previous))
+            pos - previous > Math.toRadians(200.0) -> e -= ((2 * Math.PI) + (previous - pos))
             else -> e += (pos - previous)
         }
 
