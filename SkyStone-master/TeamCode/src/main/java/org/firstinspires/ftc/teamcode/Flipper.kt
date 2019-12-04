@@ -18,11 +18,6 @@ class Flipper(h : HardwareMap, telemetry: Telemetry){
     var rightpm : Caching_Servo
     var time = ElapsedTime()
     var t = telemetry
-    var slides = Vertical_Elevator(h, telemetry)
-    var clicks = 0
-    var dclicks = 0
-    var click = false
-    var doubleClick = ElapsedTime()
     var grabbed = false
     var turnPos = 0.5
     var sensorDistance: DistanceSensor
@@ -31,19 +26,19 @@ class Flipper(h : HardwareMap, telemetry: Telemetry){
     var previous = false
 
     companion object {
-        const val case_right_turn_value = 0.8
+        const val case_right_turn_value = 0.775
         const val case_left_turn_value = 0.15
         const val case_center_turn_value = 0.5
 
         const val handshake_flip_position = 0.45 //THIS IS GOING BACKWARDS 1 -> 0
 
         const val turnPos_IDOL = 0.4635
-        const val flipperPos_IDOL = 0.97 //THIS IS GOING BACKWARDS 1 -> 0
+        const val flipperPos_IDOL = 0.945 //THIS IS GOING BACKWARDS 1 -> 0
         const val DepositPos_IDOL = 0.0 //THIS IS GOING BACKWARDS 1 -> 0
 
         const val DepositPos = 0.82
         const val Deposit_Clearance_DROPPING_Block = 0.85
-        const val Deposit_Clearance_HANDSHAKE = .1
+        const val Deposit_Clearance_HANDSHAKE = .06
 
         const val Flipper_Midway_REALLIGN = 0.75 //THIS IS GOING BACKWARDS 1 -> 0
     }
@@ -88,8 +83,10 @@ class Flipper(h : HardwareMap, telemetry: Telemetry){
 
     fun start(){
         deposit.setPosition(0.025)
+        turn.setPosition(turnPos_IDOL)
+        clamp()
         time.startTime()
-        doubleClick.startTime()
+        flipper.setPosition(flipperPos_IDOL)
         write()
     }
 
@@ -131,13 +128,13 @@ class Flipper(h : HardwareMap, telemetry: Telemetry){
         return rcase
     }
 
-    private fun grabPlatform(){
+    fun grabPlatform(){
         leftpm.setPosition(0.95)
         rightpm.setPosition(0.0)
         grabbed = true
     }
 
-    private fun resetPlatform(){
+    fun resetPlatform(){
         leftpm.setPosition(0.2)
         rightpm.setPosition(0.75)
         grabbed = false
@@ -242,6 +239,96 @@ class Flipper(h : HardwareMap, telemetry: Telemetry){
             }
             if(time.time() >= 3.0){
                 deposit.setPosition(Deposit_Clearance_HANDSHAKE)
+                flipper.setPosition(0.5)
+            }
+            if(time.time() >= 3.5){
+                flipper.setPosition(0.7)
+            }
+
+            if(time.time() >= 3.5){
+                newState(flip_state.STATE_IDLE)
+            }
+        }
+
+        t.addData("time", time.time())
+        write()
+    }
+
+    fun operate(sequece : Int){
+        if(sequece == 0){
+            newState(flip_state.STATE_DEPOSIT)
+        }
+        if(sequece == 1){
+            newState(flip_state.STATE_DROP)
+        }
+        if(sequece == 2){
+            newState(flip_state.STATE_IDLE)
+        }
+
+        if(sequece == 3){
+            if(getCase() == 0) {
+                //Case regular
+                turnPos = case_center_turn_value
+                newState(flip_state.STATE_FLIP)
+            }
+            if(getCase() == 2){
+                //Case Right
+                turnPos = case_right_turn_value
+                newState(flip_state.STATE_REALLIGN)
+            }
+            if(getCase() == 1){
+                //Case Left
+                turnPos = case_left_turn_value
+                newState(flip_state.STATE_REALLIGN)
+            }
+        }
+        if (betterFlipState == flip_state.STATE_FLIP){
+            unclamp()
+            if(time.time() >= 0.5){ //Wait for setup procedure before flipping
+                turn.setPosition(turnPos)
+                flipper.setPosition(handshake_flip_position)
+                if(time.time() >= 1.3){
+                    newState(flip_state.STATE_CLAMP)
+                }
+            }
+        }
+        else if (betterFlipState == flip_state.STATE_CLAMP){
+            clamp()
+            if (time.time() >= 1.0) {   //Wait for 1 second for the flipper to go back
+                newState(flip_state.STATE_IDLE)
+            }
+        }else if(betterFlipState == flip_state.STATE_IDLE){
+            turnPos = turnPos_IDOL
+            flipper.setPosition(flipperPos_IDOL)
+            turn.setPosition(turnPos)
+            deposit.setPosition(DepositPos_IDOL)
+            clamp()
+        }else if(betterFlipState == flip_state.STATE_DEPOSIT){
+            deposit.setPosition(DepositPos)
+        }else if(betterFlipState == flip_state.STATE_DROP) {
+            unclamp()
+            if(time.time() >= 0.3){
+                deposit.setPosition(Deposit_Clearance_DROPPING_Block)
+            }
+        }else if(betterFlipState == flip_state.STATE_REALLIGN){
+            unclamp()
+            if(time.time() >= 0.5){ //0.5
+                flipper.setPosition(Flipper_Midway_REALLIGN)
+            }
+            if(time.time() >= 1.0){ //0.6
+                turn.setPosition(((turnPos-0.5)/2) + 0.5)
+                //flipper.setPosition(handshake_flip_position)
+            }
+            if(time.time() >= 1.8){
+                turn.setPosition(turnPos)
+                flipper.setPosition(handshake_flip_position)
+            }
+            if(time.time() >= 2.5){
+                clamp()
+            }
+            if(time.time() >= 3.0){
+                deposit.setPosition(Deposit_Clearance_HANDSHAKE)
+                flipper.setPosition(0.5)
             }
             if(time.time() >= 3.5){
                 flipper.setPosition(0.7)

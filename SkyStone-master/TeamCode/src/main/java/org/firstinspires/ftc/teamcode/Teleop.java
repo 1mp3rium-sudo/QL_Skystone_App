@@ -41,6 +41,8 @@ public class Teleop extends OpMode{
 
         //grabber.initialize();
         flipper.initialize();
+
+        intake.initIntake();
     }
 
     @Override public void start(){
@@ -74,7 +76,9 @@ public class Teleop extends OpMode{
         intake.operate(gamepad1, gamepad2);
         //grabber.operate(gamepad2);
         flipper.operate(gamepad1, gamepad2);
-        telemetry.addData("DRIVETRAIN MODE", (mode ? "Field Centric" : "Robot Centric"));
+        //telemetry.addData("DRIVETRAIN MODE", (mode ? "Field Centric" : "Robot Centric"));
+        telemetry.addData("DRIVETRAIN MODE", (drive.getMode() ? "Slow Mode" : "Regular Speed"));
+        telemetry.addData("IMU", drive.angleWrap(drive.getExternalHeading()));
 
         telemetry.addData("Angle: ", drive.getExternalHeading());
 

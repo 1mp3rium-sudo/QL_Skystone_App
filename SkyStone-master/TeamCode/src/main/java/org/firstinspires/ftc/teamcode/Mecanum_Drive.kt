@@ -8,6 +8,7 @@ import com.qualcomm.robotcore.hardware.DcMotorSimple
 import com.qualcomm.robotcore.hardware.Gamepad
 import com.qualcomm.robotcore.hardware.HardwareMap
 import com.qualcomm.robotcore.util.ElapsedTime
+import com.qualcomm.robotcore.util.Range
 import org.firstinspires.ftc.robotcore.external.navigation.Orientation
 import org.firstinspires.ftc.teamcode.Universal.Math.Pose
 import org.firstinspires.ftc.teamcode.Universal.Math.Vector2
@@ -40,6 +41,14 @@ class Mecanum_Drive(hardwareMap : HardwareMap){
     var headingAccessCount = 0
     val headingUpdateFrequency = 0.1
 
+    var angle: Double = 0.toDouble()
+    var prevheading = 0.0
+
+    var integralError = 0.0
+    var prev_time = System.currentTimeMillis()
+    var dt = 0.0
+    var prevtime = 0.0
+
     var time = ElapsedTime()
 
     var scale = 1.0
@@ -50,8 +59,16 @@ class Mecanum_Drive(hardwareMap : HardwareMap){
     var previous = false
     var slow_mode = false
 
+    var mode = false
+
+    var headingerror: Double = 0.toDouble()
+
     companion object{
         var refresh_rate = 0.5  //ngl this is kinda scary but you do what u gotta do to get 300 hz
+
+        const val kpA = 0.35625
+        const val kiA = 0.005
+        const val kdA = 0.2
     }
 
     init{
@@ -107,6 +124,41 @@ class Mecanum_Drive(hardwareMap : HardwareMap){
         return arrayOf(motors[0].prev_power, motors[1].prev_power, motors[2].prev_power, motors[3].prev_power)
     }
 
+    fun pivotTo(heading : Double, fPower : Double) : Boolean{
+        val error = heading - getExternalHeading()
+        val power = kpA * error * 0.5
+        if (abs(error) > Math.toRadians(10.0)) {
+            setPower(fPower, 0.0, power)
+            return true
+        }
+        else{
+            setPower(0.0, 0.0, 0.0)
+            return false
+        }
+    }
+
+    fun targetTurn(targetAngle : Double){
+        dt = (System.currentTimeMillis() - prev_time).toDouble()
+        prevtime = System.currentTimeMillis().toDouble()
+        angle = angleWrap(getExternalHeading())
+        headingerror = targetAngle - angle
+
+        val prop = headingerror * kpA
+        val integral = integralError * kiA
+        val deriv = (headingerror - prevheading) * kdA / dt
+
+        val power = prop + integral + deriv
+        if (Math.abs(power) < 0.3) {
+            integralError += headingerror
+        }
+        prevheading = headingerror
+
+        setPower(0.0, 0.0, Range.clip(power, -1.0, 1.0))
+
+        read(hub.bulkInputData)
+        write()
+    }
+
     fun drive(gamepad : Gamepad){
         //tweakRefreshRate(gamepad)
         if (isPress(gamepad.right_bumper)){
@@ -115,10 +167,12 @@ class Mecanum_Drive(hardwareMap : HardwareMap){
         previous = gamepad.right_bumper
 
         if (slow_mode){
-            fine_tune = 0.5
+            fine_tune = 0.3
+            mode = true
         }
         else{
-            fine_tune = 1.0
+            fine_tune = 0.8
+            mode = false
         }
         setPower(fine_tune * gamepad.left_stick_y.toDouble(), fine_tune * gamepad.left_stick_x.toDouble(), -0.5 * gamepad.right_stick_x.toDouble())
         write()
