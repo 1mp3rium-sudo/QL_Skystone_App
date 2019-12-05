@@ -46,6 +46,7 @@ public class SkystoneDetectorV2 extends DogeCVDetector {
         input.copyTo(workingMat);
         input.copyTo(displayMat);
         input.copyTo(blackMask);
+        input.copyTo(yellowMask);
 
         List<MatOfPoint> contoursYellow = findContours(yellowFilter, yellowMask);
         List<Rect> rectsYellow = contoursToRects(contoursYellow);
